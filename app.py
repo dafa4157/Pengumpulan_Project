@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import re
 
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
@@ -116,6 +117,27 @@ else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
 # =============================
+# 📦 CARI & DOWNLOAD FILE PROJECT
+# =============================
+st.subheader("🔍 Cari dan Unduh File Project")
+search_file = st.text_input("Masukkan nama file atau project")
+
+if search_file:
+    matching_files = []
+    for f in os.listdir(UPLOAD_FOLDER):
+        if search_file.lower() in f.lower():
+            matching_files.append(f)
+
+    if matching_files:
+        for file in matching_files:
+            filepath = os.path.join(UPLOAD_FOLDER, file)
+            nama_tampil = file.split("__", 1)[-1]
+            with open(filepath, "rb") as f:
+                st.download_button(f"⬇️ {nama_tampil}", f, file_name=nama_tampil)
+    else:
+        st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
+
+# =============================
 # 📊 TABEL SEMUA PROJECT
 # =============================
 st.subheader("📊 Tabel Semua Project")
@@ -140,6 +162,20 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     st.line_chart(data=project_per_day, x='Tanggal', y='Jumlah Project', use_container_width=True)
 else:
     st.info("Belum ada data project dengan tanggal upload untuk ditampilkan dalam grafik.")
+
+# =============================
+# ✅ DAFTAR PROJECT SELESAI > 30 HARI
+# =============================
+st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
+now = datetime.now()
+if not df.empty:
+    df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
+    selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
+    if not selesai_lama.empty:
+        st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
+    else:
+        st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
