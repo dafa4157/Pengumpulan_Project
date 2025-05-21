@@ -1,0 +1,86 @@
+import streamlit as st
+import pandas as pd
+import os
+from datetime import datetime
+
+# Konfigurasi halaman
+st.set_page_config(page_title="Daftar Proyek", page_icon="📋")
+st.title("📋 Daftar Proyek")
+
+# Nama file data
+DATA_FILE = "data_proyek.csv"
+
+# Load atau buat data proyek
+if os.path.exists(DATA_FILE):
+    df = pd.read_csv(DATA_FILE)
+else:
+    df = pd.DataFrame(columns=["ID", "Nama Proyek", "Status", "Tanggal Upload Pertama",
+                               "Tanggal Update Terakhir", "Tanggal Selesai", "Selesai"])
+    df.to_csv(DATA_FILE, index=False)
+
+# Fungsi simpan
+def save_data(data):
+    data.to_csv(DATA_FILE, index=False)
+
+# Tambah proyek baru
+with st.form("form_tambah"):
+    st.subheader("➕ Tambah Proyek Baru")
+    nama = st.text_input("Nama Proyek")
+    submit = st.form_submit_button("Tambah")
+    if submit and nama:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        new_id = len(df)
+        df.loc[new_id] = [new_id, nama, "Belum Selesai", None, None, None, False]
+        save_data(df)
+        st.success(f"✅ Proyek '{nama}' berhasil ditambahkan.")
+
+# Pilih proyek yang ingin dilihat/diedit
+st.subheader("📂 Pilih Proyek")
+if not df.empty:
+    proyek_list = df["Nama Proyek"].tolist()
+    selected_index = st.selectbox("Pilih Proyek", range(len(proyek_list)), format_func=lambda i: proyek_list[i])
+
+    if selected_index is not None:
+        st.markdown(f"### 📝 Detail Proyek: **{df.at[selected_index, 'Nama Proyek']}**")
+
+        # Upload file
+        uploaded = st.file_uploader("📁 Upload file", key=selected_index)
+        if uploaded:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or str(df.at[selected_index, 'Tanggal Upload Pertama']) in ['None', 'nan']:
+                df.at[selected_index, 'Tanggal Upload Pertama'] = now
+            df.at[selected_index, 'Tanggal Update Terakhir'] = now
+            st.success("✅ File berhasil diunggah.")
+            save_data(df)
+
+        # Checklist selesai (hanya bisa sekali)
+        if df.at[selected_index, 'Selesai']:
+            st.checkbox("✅ Proyek Selesai", value=True, disabled=True)
+        else:
+            if st.checkbox("✔️ Tandai sebagai Selesai"):
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                df.at[selected_index, 'Status'] = "Selesai"
+                df.at[selected_index, 'Tanggal Selesai'] = now
+                df.at[selected_index, 'Tanggal Update Terakhir'] = now
+                df.at[selected_index, 'Selesai'] = True
+                save_data(df)
+                st.success("📌 Proyek ditandai sebagai selesai.")
+
+        # Hapus proyek
+        if st.button("🗑️ Hapus Proyek Ini"):
+            df.drop(index=selected_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            df["ID"] = df.index  # perbarui ID
+            save_data(df)
+            st.warning("❌ Proyek telah dihapus. Silakan refresh halaman.")
+            st.stop()
+
+# Tampilkan semua proyek
+st.subheader("📊 Data Lengkap:")
+
+if not df.empty:
+    st.dataframe(df.drop(columns=['Selesai']), use_container_width=True)
+else:
+    st.info("Belum ada proyek yang ditambahkan.")
+
+
