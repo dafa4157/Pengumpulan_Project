@@ -10,7 +10,7 @@ UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Load data CSV
+# Fungsi load data CSV
 def load_data():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
@@ -22,29 +22,16 @@ def load_data():
         df.to_csv(CSV_FILE, index=False)
         return df
 
-# Simpan data CSV
+# Fungsi simpan data CSV
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
 
-# Fungsi hapus file project, dengan debug
-def hapus_file_project(nama_project):
-    files_removed = []
-    files_failed = []
-    for f in os.listdir(UPLOAD_FOLDER):
-        if f.startswith(f"{nama_project}__"):
-            try:
-                os.remove(os.path.join(UPLOAD_FOLDER, f))
-                files_removed.append(f)
-            except Exception as e:
-                files_failed.append((f, str(e)))
-    return files_removed, files_failed
-
-# Mulai app
+# App title
 st.title("📋 Manajemen Project")
 
 df = load_data()
 
-# Tambah project baru
+# Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
 with st.form("form_tambah"):
     nama_baru = st.text_input("Nama Project Baru")
@@ -79,12 +66,13 @@ if not df.empty:
     st.write(f"**Tanggal Update Terakhir:** {df.at[selected_index, 'Tanggal Update Terakhir']}")
     st.write(f"**Tanggal Selesai:** {df.at[selected_index, 'Tanggal Selesai']}")
 
-    # Upload file dengan validasi duplikat
+    # Upload file dengan validasi nama file unik per project
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
         existing_files = os.listdir(UPLOAD_FOLDER)
         nama_project = df.at[selected_index, 'Nama Project']
 
+        # Cek file duplikat
         duplicate_files = []
         files_to_upload = []
         for file in uploaded_files:
@@ -97,6 +85,7 @@ if not df.empty:
         if duplicate_files:
             st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join(duplicate_files)}")
 
+        # Simpan file yang tidak duplikat
         if files_to_upload:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for filename, file in files_to_upload:
@@ -104,7 +93,7 @@ if not df.empty:
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
-            # Update tanggal upload
+            # Update tanggal upload di dataframe
             if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
                 df.at[selected_index, 'Tanggal Upload Pertama'] = now
             df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -130,23 +119,20 @@ if not df.empty:
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
 
-    # Tombol hapus project dan file terkait
+    # Tombol hapus project + hapus file terkait
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
-        removed, failed = hapus_file_project(hapus_nama)
 
-        # Hapus project dari dataframe
+        # Hapus file terkait project
+        for f in os.listdir(UPLOAD_FOLDER):
+            if f.startswith(f"{hapus_nama}__"):
+                os.remove(os.path.join(UPLOAD_FOLDER, f))
+
+        # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
         df.reset_index(drop=True, inplace=True)
         save_data(df)
-
-        st.success(f"Project '{hapus_nama}' berhasil dihapus.")
-        if removed:
-            st.write(f"File terhapus: {', '.join(removed)}")
-        if failed:
-            st.error("File gagal dihapus:")
-            for f, e in failed:
-                st.error(f"- {f}: {e}")
+        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
 
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
@@ -179,16 +165,20 @@ else:
 
 # Grafik project per hari
 st.subheader("📈 Grafik Jumlah Project per Hari")
+
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
-    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
+    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.normalize()  # Pastikan datetime tanpa jam
 
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
     project_per_day = project_per_day.sort_values('Tanggal')
 
+    # Pastikan tipe datetime yang sama agar merge tidak error
+    project_per_day['Tanggal'] = pd.to_datetime(project_per_day['Tanggal'])
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
-                                                       end=datetime.now().date())})
+                                                       end=pd.Timestamp(datetime.now().date()))})
+
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
     merged['Jumlah Project'] = merged['Jumlah Project'].astype(int)
 
@@ -206,14 +196,6 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
-
-# Debug: Tampilkan isi folder uploads
-st.subheader("🗂️ Daftar File di Folder Uploads (untuk debug)")
-files_in_upload = os.listdir(UPLOAD_FOLDER)
-if files_in_upload:
-    st.write(files_in_upload)
-else:
-    st.write("Folder uploads kosong.")
 
 
 
