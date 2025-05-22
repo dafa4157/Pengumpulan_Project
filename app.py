@@ -1,19 +1,26 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
+import pytz
 import os
 
+# =============================
+# 📁 KONFIGURASI
+# =============================
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
 BACKUP_FOLDER = "backup"
 
-# Buat folder upload & backup jika belum ada
+# Buat folder jika belum ada
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
-# Fungsi waktu lokal WIB
+# =============================
+# ⏱ FUNGSI WAKTU INDONESIA
+# =============================
 def now_wib():
-    return datetime.utcnow() + timedelta(hours=7)
+    tz = pytz.timezone('Asia/Jakarta')
+    return datetime.now(tz)
 
 # =============================
 # 🔄 LOAD & SIMPAN DATA
@@ -64,7 +71,7 @@ with st.form("form_tambah"):
             }
             df.loc[len(df)] = new_row
             save_data(df)
-            st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman untuk melihat perubahan.")
+            st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman.")
 
 # =============================
 # 🔧 KELOLA PROJECT
@@ -82,9 +89,11 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now = now_wib().strftime("%Y-%m-%d %H:%M:%S")
+        now = now_wib()
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
         for file in uploaded_files:
-            timestamp = now_wib().strftime("%Y%m%d%H%M%S")
+            timestamp = now.strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
 
@@ -92,29 +101,31 @@ if not df.empty:
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
-            df.at[selected_index, 'Tanggal Upload Pertama'] = now
-        df.at[selected_index, 'Tanggal Update Terakhir'] = now
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or str(df.at[selected_index, 'Tanggal Upload Pertama']) in ['None', 'nan', 'NaT']:
+            df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
+
+        df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
+
         if not df.at[selected_index, 'Selesai']:
             df.at[selected_index, 'Status'] = 'Belum Selesai'
 
         save_data(df)
-        st.success(f"{len(uploaded_files)} file berhasil diunggah dan disimpan.")
+        st.success(f"{len(uploaded_files)} file berhasil diunggah dan status diperbarui.")
 
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or str(df.at[selected_index, 'Tanggal Upload Pertama']) in ['None', 'nan', 'NaT']:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now = now_wib().strftime("%Y-%m-%d %H:%M:%S")
+                now_str = now_wib().strftime("%Y-%m-%d %H:%M:%S")
                 df.at[selected_index, 'Status'] = "Selesai"
-                df.at[selected_index, 'Tanggal Selesai'] = now
-                df.at[selected_index, 'Tanggal Update Terakhir'] = now
+                df.at[selected_index, 'Tanggal Selesai'] = now_str
+                df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
-                st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
+                st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman.")
 
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
@@ -126,7 +137,7 @@ else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
 # =============================
-# 📦 CARI & DOWNLOAD FILE PROJECT
+# 🔍 CARI & UNDUH FILE PROJECT
 # =============================
 st.subheader("🔍 Cari dan Unduh File Project")
 search_file = st.text_input("Masukkan nama file atau project")
@@ -147,7 +158,7 @@ if search_file:
     else:
         st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
 
-st.caption("📌 Catatan: Semua file dan data akan tetap tersimpan selamanya, kecuali kamu menghapus project atau file secara manual.")
+st.caption("📌 Catatan: Semua file dan data akan tetap tersimpan, kecuali kamu menghapus project secara manual.")
 
 # =============================
 # 📊 TABEL SEMUA PROJECT
@@ -187,6 +198,7 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
