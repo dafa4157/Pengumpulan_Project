@@ -28,30 +28,11 @@ def save_data(df):
     df.to_csv(CSV_FILE, index=False)
 
 # =============================
-# 🧹 BERSIHKAN FILE ORPHAN (FILE YANG TIDAK ADA PROJECT-NYA)
-# =============================
-def cleanup_orphan_files(df):
-    project_names = set(df['Nama Project'].values)
-    files_removed = 0
-    for f in os.listdir(UPLOAD_FOLDER):
-        if "__" in f:
-            project_name_in_file = f.split("__", 1)[0]
-            if project_name_in_file not in project_names:
-                try:
-                    os.remove(os.path.join(UPLOAD_FOLDER, f))
-                    files_removed += 1
-                except Exception as e:
-                    st.warning(f"Gagal hapus file orphan {f}: {e}")
-    if files_removed > 0:
-        st.info(f"Membersihkan {files_removed} file orphan yang tidak terkait project.")
-
-# =============================
 # 🚀 APLIKASI STREAMLIT
 # =============================
 st.title("📋 Manajemen Project")
 
 df = load_data()
-cleanup_orphan_files(df)  # Panggil bersihkan file orphan setiap kali app jalan
 
 # =============================
 # ➕ TAMBAH PROJECT BARU
@@ -142,18 +123,23 @@ if not df.empty:
         hapus_nama = df.at[selected_index, 'Nama Project']
 
         # Hapus file terkait project dari folder uploads
+        failed_files = []
         for f in os.listdir(UPLOAD_FOLDER):
             if f.startswith(f"{hapus_nama}__"):
                 try:
                     os.remove(os.path.join(UPLOAD_FOLDER, f))
                 except Exception as e:
-                    st.error(f"Gagal menghapus file {f}: {e}")
+                    failed_files.append((f, str(e)))
 
         # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
         df.reset_index(drop=True, inplace=True)
         save_data(df)
-        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+
+        if failed_files:
+            st.error("Beberapa file gagal dihapus:\n" + "\n".join([f"{f}: {err}" for f, err in failed_files]))
+        else:
+            st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
 
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
@@ -203,6 +189,11 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
 
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
                                                        end=datetime.now().date())})
+
+    # Pastikan tipe tanggal sama
+    full_range['Tanggal'] = pd.to_datetime(full_range['Tanggal'])
+    project_per_day['Tanggal'] = pd.to_datetime(project_per_day['Tanggal'])
+
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
     merged['Jumlah Project'] = merged['Jumlah Project'].astype(int)
 
