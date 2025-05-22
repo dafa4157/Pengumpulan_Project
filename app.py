@@ -147,6 +147,33 @@ if search_term:
         st.warning("❌ File tidak ditemukan.")
 
 # ====================
+# Hapus File Project
+# ====================
+st.subheader("🗑 Hapus File Project")
+hapus_term = st.text_input("Masukkan nama file yang ingin dihapus", key="hapus_file")
+
+if hapus_term:
+    files_to_delete = [f for f in os.listdir(UPLOAD_FOLDER) if hapus_term.lower() in f.lower()]
+    
+    if files_to_delete:
+        st.write(f"File yang cocok dengan '{hapus_term}':")
+        for i, file in enumerate(files_to_delete):
+            filepath = os.path.join(UPLOAD_FOLDER, file)
+            filename_display = file.split("__", 2)[-1]
+            col1, col2 = st.columns([8, 1])
+            with col1:
+                st.write(filename_display)
+            with col2:
+                if st.button("Hapus", key=f"hapus_file_{i}"):
+                    try:
+                        os.remove(filepath)
+                        st.success(f"File '{filename_display}' berhasil dihapus.")
+                    except Exception as e:
+                        st.error(f"Gagal menghapus file: {e}")
+    else:
+        st.info("Tidak ditemukan file dengan nama tersebut.")
+
+# ====================
 # Tabel Semua Project
 # ====================
 st.subheader("📊 Tabel Semua Project")
@@ -185,6 +212,7 @@ else:
     st.info("✅ Tidak ada project selesai lebih dari 30 hari lalu.")
 
 st.caption("📌 Catatan: File akan tersimpan otomatis. Hapus manual bila perlu.")
+
 
 
 
