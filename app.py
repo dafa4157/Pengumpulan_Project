@@ -53,10 +53,11 @@ def convert_to_datetime(df, col):
     df[col] = pd.to_datetime(df[col], errors='coerce')
     return df
 
+# --- STREAMLIT APP ---
+st.title("📋 Manajemen Project")
+
 # Load data awal
 df = load_data()
-
-st.title("📋 Manajemen Project")
 
 # Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
@@ -77,7 +78,7 @@ with st.form("form_tambah"):
                 'Tanggal Selesai': None,
                 'Selesai': False
             }
-            df.loc[len(df)] = new_row
+            df = df.append(new_row, ignore_index=True)
             save_data(df)
             st.success(f"Project '{nama_baru}' berhasil ditambahkan.")
             st.experimental_rerun()
@@ -88,17 +89,17 @@ st.subheader("🔧 Kelola Project")
 if not df.empty:
     selected_index = st.selectbox("Pilih Project", df.index, format_func=lambda i: df.at[i, 'Nama Project'])
 
-    st.write(f"**Nama Project:** {df.at[selected_index, 'Nama Project']}")
+    nama_project = df.at[selected_index, 'Nama Project']
+
+    st.write(f"**Nama Project:** {nama_project}")
     st.write(f"**Status:** {df.at[selected_index, 'Status']}")
     st.write(f"**Tanggal Upload Pertama:** {df.at[selected_index, 'Tanggal Upload Pertama']}")
     st.write(f"**Tanggal Update Terakhir:** {df.at[selected_index, 'Tanggal Update Terakhir']}")
     st.write(f"**Tanggal Selesai:** {df.at[selected_index, 'Tanggal Selesai']}")
 
     # Upload file dengan validasi nama file unik per project
-    uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=f"upload_{selected_index}", accept_multiple_files=True)
     if uploaded_files:
-        nama_project = df.at[selected_index, 'Nama Project']
-
         duplicate_files = []
         files_to_upload = []
         for file in uploaded_files:
@@ -131,15 +132,15 @@ if not df.empty:
             st.experimental_rerun()
 
     # Checkbox selesai project
-    if df.at[selected_index, 'Selesai']:
+    selesai = df.at[selected_index, 'Selesai']
+    if selesai:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        if df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan'] or pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
-            selesai_key = f"selesai_{selected_index}"
-            selesai_checkbox = st.checkbox("✔️ Tandai sebagai Selesai", key=selesai_key)
-            if selesai_checkbox:
+            checkbox_selesai = st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}")
+            if checkbox_selesai:
                 now = now_str()
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
@@ -150,7 +151,7 @@ if not df.empty:
                 st.experimental_rerun()
 
     # Tombol hapus project + hapus file terkait
-    if st.button("🗑 Hapus Project Ini"):
+    if st.button("🗑 Hapus Project Ini", key=f"hapus_{selected_index}"):
         hapus_nama = df.at[selected_index, 'Nama Project']
 
         files_dihapus = hapus_file_project(hapus_nama)
@@ -160,12 +161,10 @@ if not df.empty:
             st.info("Tidak ada file terkait project yang ditemukan untuk dihapus.")
 
         # Hapus data project dari dataframe
-        df.drop(index=selected_index, inplace=True)
-        df.reset_index(drop=True, inplace=True)
+        df = df.drop(index=selected_index).reset_index(drop=True)
         save_data(df)
         st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
         st.experimental_rerun()
-
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
@@ -248,9 +247,9 @@ if files:
                     st.success(f"File '{f}' berhasil dihapus.")
                 except Exception as e:
                     st.error(f"Gagal menghapus file '{f}': {e}")
-            st.experimental_rerun()
 else:
     st.info("Tidak ada file di folder upload untuk dihapus.")
+
 
 
 
