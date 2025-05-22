@@ -124,9 +124,13 @@ if not df.empty:
         hapus_nama = df.at[selected_index, 'Nama Project']
 
         # Hapus file terkait project
-        for f in os.listdir(UPLOAD_FOLDER):
-            if f.startswith(f"{hapus_nama}__"):
-                os.remove(os.path.join(UPLOAD_FOLDER, f))
+        files_to_remove = [f for f in os.listdir(UPLOAD_FOLDER) if f.startswith(f"{hapus_nama}__")]
+        for f in files_to_remove:
+            filepath = os.path.join(UPLOAD_FOLDER, f)
+            try:
+                os.remove(filepath)
+            except Exception as e:
+                st.error(f"Gagal menghapus file {f}: {e}")
 
         # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
@@ -169,13 +173,16 @@ st.subheader("📈 Grafik Jumlah Project per Hari")
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
-    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
+
+    # Gunakan .dt.normalize() untuk cocok tipe datetime64[ns]
+    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.normalize()
 
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
     project_per_day = project_per_day.sort_values('Tanggal')
 
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
-                                                       end=datetime.now().date())})
+                                                       end=pd.Timestamp(datetime.now().date()))})
+
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
     merged['Jumlah Project'] = merged['Jumlah Project'].astype(int)
 
