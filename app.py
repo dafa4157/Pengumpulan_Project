@@ -65,7 +65,6 @@ with st.form("form_tambah"):
             }
             save_data(df)
             st.success(f"✅ Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman.")
-
 # ====================
 # Kelola Project
 # ====================
@@ -84,30 +83,33 @@ if not df.empty:
     uploaded_files = st.file_uploader("Upload file", key=f"upload_{selected_index}", accept_multiple_files=True)
 
     if uploaded_files:
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        any_uploaded = False
         for file in uploaded_files:
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ts = datetime.now().strftime("%Y%m%d%H%M%S")
             filename = f"{project['Nama Project']}__{ts}__{file.name}"
             path = os.path.join(UPLOAD_FOLDER, filename)
             with open(path, "wb") as f:
                 f.write(file.read())
+            any_uploaded = True
 
-        if pd.isna(project['Tanggal Upload Pertama']) or str(project['Tanggal Upload Pertama']).lower() in ['none', 'nan']:
-            df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
+        if any_uploaded:
+            if pd.isna(project['Tanggal Upload Pertama']) or str(project['Tanggal Upload Pertama']).strip().lower() in ['none', 'nan', '']:
+                df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
 
-        df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
+            df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
 
-        if not project['Selesai']:
-            df.at[selected_index, 'Status'] = "Belum Selesai"
+            if not project['Selesai']:
+                df.at[selected_index, 'Status'] = "Belum Selesai"
 
-        save_data(df)
-        st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
+            save_data(df)
+            st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
 
     # Checkbox selesai
     if project['Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        boleh_selesai = df.at[selected_index, 'Tanggal Upload Pertama'] not in [None, 'None', 'nan']
+        boleh_selesai = df.at[selected_index, 'Tanggal Upload Pertama'] not in [None, 'None', 'nan', '']
         if not boleh_selesai:
             st.info("📥 Upload file terlebih dahulu sebelum menandai selesai.")
         else:
@@ -129,6 +131,9 @@ if not df.empty:
 
 else:
     st.info("Belum ada project yang ditambahkan.")
+
+
+   
 
 # ====================
 # Cari & Download File
