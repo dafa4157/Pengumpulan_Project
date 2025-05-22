@@ -54,7 +54,6 @@ with st.form("form_tambah"):
         elif nama_baru in df['Nama Project'].values:
             st.warning("⚠️ Project sudah ada.")
         else:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             df.loc[len(df)] = {
                 'Nama Project': nama_baru,
                 'Status': 'Belum Selesai',
@@ -84,10 +83,13 @@ if not df.empty:
     uploaded_files = st.file_uploader("Upload file", key=f"upload_{selected_index}", accept_multiple_files=True)
 
     if uploaded_files:
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from datetime import datetime
+        now = datetime.now()
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = now.strftime("%Y%m%d%H%M%S")
+
         for file in uploaded_files:
-            ts = datetime.now().strftime("%Y%m%d%H%M%S")
-            filename = f"{project['Nama Project']}__{ts}__{file.name}"
+            filename = f"{project['Nama Project']}__{timestamp}__{file.name}"
             path = os.path.join(UPLOAD_FOLDER, filename)
             with open(path, "wb") as f:
                 f.write(file.read())
@@ -102,6 +104,8 @@ if not df.empty:
 
         save_data(df)
         st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
+
+        st.experimental_rerun()  # Segarkan aplikasi agar update langsung terlihat
 
     # Checkbox selesai
     if project['Selesai']:
@@ -141,8 +145,21 @@ if search_term:
         for i, file in enumerate(files):
             filepath = os.path.join(UPLOAD_FOLDER, file)
             filename_display = file.split("__", 2)[-1]
-            with open(filepath, "rb") as f:
-                st.download_button(f"⬇️ {filename_display}", f, file_name=filename_display, key=f"dl_{i}")
+
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                with open(filepath, "rb") as f:
+                    st.download_button(
+                        label=f"⬇️ {filename_display}",
+                        data=f,
+                        file_name=filename_display,
+                        key=f"dl_{i}"
+                    )
+            with col2:
+                if st.button("🗑️ Hapus", key=f"hapus_file_{i}"):
+                    os.remove(filepath)
+                    st.success(f"🗑️ File '{filename_display}' telah dihapus.")
+                    st.experimental_rerun()
     else:
         st.warning("❌ File tidak ditemukan.")
 
