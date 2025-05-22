@@ -34,12 +34,6 @@ def save_data(df):
     df.to_csv(os.path.join(BACKUP_FOLDER, backup_name), index=False)
 
 # ====================
-# Inisialisasi Session State untuk flag upload
-# ====================
-if 'uploaded_processed' not in st.session_state:
-    st.session_state['uploaded_processed'] = False
-
-# ====================
 # Tampilan Aplikasi
 # ====================
 st.set_page_config(page_title="Manajemen Proyek", layout="wide")
@@ -89,14 +83,11 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file", key=f"upload_{selected_index}", accept_multiple_files=True)
 
-    # Proses upload file dengan flag session_state untuk mencegah loop rerun
-    if uploaded_files and not st.session_state['uploaded_processed']:
-        now = datetime.now()
-        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        timestamp = now.strftime("%Y%m%d%H%M%S")
-
+    if uploaded_files:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
-            filename = f"{project['Nama Project']}__{timestamp}__{file.name}"
+            ts = datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = f"{project['Nama Project']}__{ts}__{file.name}"
             path = os.path.join(UPLOAD_FOLDER, filename)
             with open(path, "wb") as f:
                 f.write(file.read())
@@ -111,11 +102,6 @@ if not df.empty:
 
         save_data(df)
         st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
-
-        st.session_state['uploaded_processed'] = True
-        st.experimental_rerun()
-    elif not uploaded_files:
-        st.session_state['uploaded_processed'] = False
 
     # Checkbox selesai
     if project['Selesai']:
@@ -145,7 +131,7 @@ else:
     st.info("Belum ada project yang ditambahkan.")
 
 # ====================
-# Cari & Download File
+# Cari & Download File + Hapus File
 # ====================
 st.subheader("🔍 Cari dan Unduh File Project")
 search_term = st.text_input("Masukkan nama file atau project")
@@ -155,21 +141,19 @@ if search_term:
         for i, file in enumerate(files):
             filepath = os.path.join(UPLOAD_FOLDER, file)
             filename_display = file.split("__", 2)[-1]
+            col1, col2 = st.columns([8, 2])  # Buat 2 kolom untuk tombol download dan hapus
 
-            col1, col2 = st.columns([4, 1])
             with col1:
                 with open(filepath, "rb") as f:
-                    st.download_button(
-                        label=f"⬇️ {filename_display}",
-                        data=f,
-                        file_name=filename_display,
-                        key=f"dl_{i}"
-                    )
+                    st.download_button(f"⬇️ {filename_display}", f, file_name=filename_display, key=f"dl_{i}")
             with col2:
-                if st.button("🗑️ Hapus", key=f"hapus_file_{i}"):
-                    os.remove(filepath)
-                    st.success(f"🗑️ File '{filename_display}' telah dihapus.")
-                    st.experimental_rerun()
+                if st.button(f"🗑 Hapus", key=f"hapus_file_{i}"):
+                    try:
+                        os.remove(filepath)
+                        st.success(f"File '{filename_display}' berhasil dihapus.")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Gagal menghapus file: {e}")
     else:
         st.warning("❌ File tidak ditemukan.")
 
@@ -212,6 +196,7 @@ else:
     st.info("✅ Tidak ada project selesai lebih dari 30 hari lalu.")
 
 st.caption("📌 Catatan: File akan tersimpan otomatis. Hapus manual bila perlu.")
+
 
 
 
