@@ -112,6 +112,7 @@ if not df.empty:
 
             save_data(df)
             st.success(f"{len(files_to_upload)} file berhasil diunggah dan disimpan.")
+            st.experimental_rerun()  # Supaya update status langsung muncul
 
     # Checkbox selesai project
     if df.at[selected_index, 'Selesai']:
@@ -128,23 +129,31 @@ if not df.empty:
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
+                st.experimental_rerun()
 
     # Tombol hapus project + hapus file terkait
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
 
-        files_dihapus = hapus_file_project(hapus_nama)
+        try:
+            files_dihapus = hapus_file_project(hapus_nama)
+        except Exception as e:
+            st.error(f"Error saat menghapus file: {e}")
+            files_dihapus = []
+
         if files_dihapus:
             st.write(f"File yang dihapus: {', '.join(files_dihapus)}")
         else:
             st.info("Tidak ada file terkait project yang ditemukan untuk dihapus.")
 
-        # Hapus data project dari dataframe
-        df.drop(index=selected_index, inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        save_data(df)
-        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
-        st.experimental_rerun()
+        try:
+            df.drop(index=selected_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            save_data(df)
+            st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error saat menghapus data project: {e}")
 
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
@@ -224,7 +233,7 @@ if files:
                 except Exception as e:
                     st.error(f"Gagal menghapus file '{f}': {e}")
 else:
-    st.info("Tidak ada file di folder upload untuk dihapus.") 
+    st.info("Tidak ada file di folder upload untuk dihapus.")
 
 
 
