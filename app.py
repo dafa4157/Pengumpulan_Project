@@ -114,6 +114,7 @@ if not df.empty:
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai.")
+                st.experimental_rerun()  # <-- Tambahan supaya reload otomatis
 
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
@@ -182,9 +183,6 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
-
-
-
 
 
 
