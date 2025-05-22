@@ -6,11 +6,9 @@ import os
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
 
-# Buat folder upload kalau belum ada
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Fungsi load data CSV atau buat baru jika belum ada
 def load_data():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
@@ -22,11 +20,9 @@ def load_data():
         df.to_csv(CSV_FILE, index=False)
         return df
 
-# Fungsi simpan data CSV
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
 
-# Fungsi hapus file terkait project berdasarkan prefix nama project
 def hapus_file_project(nama_project):
     nama_project_lower = nama_project.lower()
     files_dihapus = []
@@ -44,7 +40,6 @@ st.title("📋 Manajemen Project")
 
 df = load_data()
 
-# Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
 with st.form("form_tambah"):
     nama_baru = st.text_input("Nama Project Baru")
@@ -67,7 +62,6 @@ with st.form("form_tambah"):
             save_data(df)
             st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman untuk melihat perubahan.")
 
-# Kelola project
 st.subheader("🔧 Kelola Project")
 
 if not df.empty:
@@ -79,42 +73,26 @@ if not df.empty:
     st.write(f"**Tanggal Update Terakhir:** {df.at[selected_index, 'Tanggal Update Terakhir']}")
     st.write(f"**Tanggal Selesai:** {df.at[selected_index, 'Tanggal Selesai']}")
 
-    # Upload file dengan validasi nama file unik per project
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        existing_files = os.listdir(UPLOAD_FOLDER)
         nama_project = df.at[selected_index, 'Nama Project']
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        duplicate_files = []
-        files_to_upload = []
         for file in uploaded_files:
             filename = f"{nama_project}__{file.name}"
-            if filename in existing_files:
-                duplicate_files.append(file.name)
-            else:
-                files_to_upload.append((filename, file))
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            with open(filepath, "wb") as f:
+                f.write(file.read())
+        
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
+            df.at[selected_index, 'Tanggal Upload Pertama'] = now
+        df.at[selected_index, 'Tanggal Update Terakhir'] = now
+        if not df.at[selected_index, 'Selesai']:
+            df.at[selected_index, 'Status'] = 'Belum Selesai'
 
-        if duplicate_files:
-            st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join(duplicate_files)}")
+        save_data(df)
+        st.success(f"{len(uploaded_files)} file berhasil diunggah dan disimpan (overwrite jika sebelumnya ada).")
 
-        if files_to_upload:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            for filename, file in files_to_upload:
-                filepath = os.path.join(UPLOAD_FOLDER, filename)
-                with open(filepath, "wb") as f:
-                    f.write(file.read())
-
-            if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
-                df.at[selected_index, 'Tanggal Upload Pertama'] = now
-            df.at[selected_index, 'Tanggal Update Terakhir'] = now
-            if not df.at[selected_index, 'Selesai']:
-                df.at[selected_index, 'Status'] = 'Belum Selesai'
-
-            save_data(df)
-            st.success(f"{len(files_to_upload)} file berhasil diunggah dan disimpan.")
-            st.experimental_rerun()  # Supaya update status langsung muncul
-
-    # Checkbox selesai project
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
@@ -129,45 +107,26 @@ if not df.empty:
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
-                st.experimental_rerun()
 
-    # Tombol hapus project + hapus file terkait
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
-
-        try:
-            files_dihapus = hapus_file_project(hapus_nama)
-        except Exception as e:
-            st.error(f"Error saat menghapus file: {e}")
-            files_dihapus = []
-
+        files_dihapus = hapus_file_project(hapus_nama)
         if files_dihapus:
             st.write(f"File yang dihapus: {', '.join(files_dihapus)}")
         else:
             st.info("Tidak ada file terkait project yang ditemukan untuk dihapus.")
-
-        try:
-            df.drop(index=selected_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_data(df)
-            st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
-            st.experimental_rerun()
-        except Exception as e:
-            st.error(f"Error saat menghapus data project: {e}")
-
+        df.drop(index=selected_index, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        save_data(df)
+        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+        st.experimental_rerun()
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
-# Cari dan download file project
 st.subheader("🔍 Cari dan Unduh File Project")
 search_file = st.text_input("Masukkan nama file atau project")
-
 if search_file:
-    matching_files = []
-    for f in os.listdir(UPLOAD_FOLDER):
-        if search_file.lower() in f.lower():
-            matching_files.append(f)
-
+    matching_files = [f for f in os.listdir(UPLOAD_FOLDER) if search_file.lower() in f.lower()]
     if matching_files:
         for file in matching_files:
             filepath = os.path.join(UPLOAD_FOLDER, file)
@@ -177,16 +136,13 @@ if search_file:
     else:
         st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
 
-# Tabel semua project
 st.subheader("📊 Tabel Semua Project")
 if df.empty:
     st.write("Belum ada data project.")
 else:
     st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
 
-# Grafik project per hari
 st.subheader("📈 Grafik Jumlah Project per Hari")
-
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce').dt.date
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
@@ -206,7 +162,6 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
 else:
     st.info("Belum ada data project dengan tanggal upload untuk ditampilkan dalam grafik.")
 
-# Daftar project selesai > 30 hari
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
 now = datetime.now()
 if not df.empty:
@@ -217,7 +172,6 @@ if not df.empty:
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
 
-# Fitur tambahan: Hapus file manual dari folder uploads
 st.subheader("🗑 Hapus File Manual dari Folder Uploads")
 files = os.listdir(UPLOAD_FOLDER)
 if files:
@@ -234,7 +188,6 @@ if files:
                     st.error(f"Gagal menghapus file '{f}': {e}")
 else:
     st.info("Tidak ada file di folder upload untuk dihapus.")
-
 
 
 
