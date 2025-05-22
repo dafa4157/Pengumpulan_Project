@@ -28,11 +28,30 @@ def save_data(df):
     df.to_csv(CSV_FILE, index=False)
 
 # =============================
+# 🧹 BERSIHKAN FILE ORPHAN (FILE YANG TIDAK ADA PROJECT-NYA)
+# =============================
+def cleanup_orphan_files(df):
+    project_names = set(df['Nama Project'].values)
+    files_removed = 0
+    for f in os.listdir(UPLOAD_FOLDER):
+        if "__" in f:
+            project_name_in_file = f.split("__", 1)[0]
+            if project_name_in_file not in project_names:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                    files_removed += 1
+                except Exception as e:
+                    st.warning(f"Gagal hapus file orphan {f}: {e}")
+    if files_removed > 0:
+        st.info(f"Membersihkan {files_removed} file orphan yang tidak terkait project.")
+
+# =============================
 # 🚀 APLIKASI STREAMLIT
 # =============================
 st.title("📋 Manajemen Project")
 
 df = load_data()
+cleanup_orphan_files(df)  # Panggil bersihkan file orphan setiap kali app jalan
 
 # =============================
 # ➕ TAMBAH PROJECT BARU
@@ -83,7 +102,7 @@ if not df.empty:
 
         if duplicate_files:
             st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join([name.split('__', 1)[1] for name in duplicate_files])}")
-        
+
         # Upload hanya file yang belum ada
         files_to_upload = [file for file in uploaded_files if f"{df.at[selected_index, 'Nama Project']}__{file.name}" not in existing_files]
 
@@ -125,7 +144,10 @@ if not df.empty:
         # Hapus file terkait project dari folder uploads
         for f in os.listdir(UPLOAD_FOLDER):
             if f.startswith(f"{hapus_nama}__"):
-                os.remove(os.path.join(UPLOAD_FOLDER, f))
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                except Exception as e:
+                    st.error(f"Gagal menghapus file {f}: {e}")
 
         # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
@@ -200,6 +222,7 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
