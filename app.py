@@ -34,6 +34,12 @@ def save_data(df):
     df.to_csv(os.path.join(BACKUP_FOLDER, backup_name), index=False)
 
 # ====================
+# Inisialisasi Session State untuk flag upload
+# ====================
+if 'uploaded_processed' not in st.session_state:
+    st.session_state['uploaded_processed'] = False
+
+# ====================
 # Tampilan Aplikasi
 # ====================
 st.set_page_config(page_title="Manajemen Proyek", layout="wide")
@@ -54,6 +60,7 @@ with st.form("form_tambah"):
         elif nama_baru in df['Nama Project'].values:
             st.warning("⚠️ Project sudah ada.")
         else:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             df.loc[len(df)] = {
                 'Nama Project': nama_baru,
                 'Status': 'Belum Selesai',
@@ -82,8 +89,8 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file", key=f"upload_{selected_index}", accept_multiple_files=True)
 
-    if uploaded_files:
-        from datetime import datetime
+    # Proses upload file dengan flag session_state untuk mencegah loop rerun
+    if uploaded_files and not st.session_state['uploaded_processed']:
         now = datetime.now()
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         timestamp = now.strftime("%Y%m%d%H%M%S")
@@ -105,7 +112,10 @@ if not df.empty:
         save_data(df)
         st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
 
-        st.experimental_rerun()  # Segarkan aplikasi agar update langsung terlihat
+        st.session_state['uploaded_processed'] = True
+        st.experimental_rerun()
+    elif not uploaded_files:
+        st.session_state['uploaded_processed'] = False
 
     # Checkbox selesai
     if project['Selesai']:
