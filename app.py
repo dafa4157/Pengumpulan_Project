@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import re
+import pytz
 
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
@@ -16,7 +16,12 @@ if not os.path.exists(UPLOAD_FOLDER):
 # =============================
 def load_data():
     if os.path.exists(CSV_FILE):
-        return pd.read_csv(CSV_FILE)
+        df = pd.read_csv(CSV_FILE)
+        # Parsing kolom waktu jadi datetime dengan timezone lokal Asia/Jakarta
+        for col in ['Tanggal Upload Pertama', 'Tanggal Update Terakhir', 'Tanggal Selesai']:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+        return df
     else:
         df = pd.DataFrame(columns=[
             'Nama Project', 'Status', 'Tanggal Upload Pertama',
@@ -26,7 +31,18 @@ def load_data():
         return df
 
 def save_data(df):
-    df.to_csv(CSV_FILE, index=False)
+    df_copy = df.copy()
+    for col in ['Tanggal Upload Pertama', 'Tanggal Update Terakhir', 'Tanggal Selesai']:
+        if col in df_copy.columns:
+            df_copy[col] = df_copy[col].apply(lambda x: x.isoformat() if pd.notnull(x) else None)
+    df_copy.to_csv(CSV_FILE, index=False)
+
+# =============================
+# Format waktu untuk ditampilkan
+def format_datetime_local(dt):
+    if pd.isna(dt):
+        return "-"
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 # =============================
 # 🚀 APLIKASI STREAMLIT
@@ -70,13 +86,13 @@ if not df.empty:
 
     st.write(f"*Nama Project:* {df.at[selected_index, 'Nama Project']}")
     st.write(f"*Status:* {df.at[selected_index, 'Status']}")
-    st.write(f"*Tanggal Upload Pertama:* {df.at[selected_index, 'Tanggal Upload Pertama']}")
-    st.write(f"*Tanggal Update Terakhir:* {df.at[selected_index, 'Tanggal Update Terakhir']}")
-    st.write(f"*Tanggal Selesai:* {df.at[selected_index, 'Tanggal Selesai']}")
+    st.write(f"*Tanggal Upload Pertama:* {format_datetime_local(df.at[selected_index, 'Tanggal Upload Pertama'])}")
+    st.write(f"*Tanggal Update Terakhir:* {format_datetime_local(df.at[selected_index, 'Tanggal Update Terakhir'])}")
+    st.write(f"*Tanggal Selesai:* {format_datetime_local(df.at[selected_index, 'Tanggal Selesai'])}")
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now(pytz.timezone('Asia/Jakarta'))  # waktu lokal Asia/Jakarta saat upload
         for file in uploaded_files:
             filename = f"{df.at[selected_index, 'Nama Project']}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -99,7 +115,7 @@ if not df.empty:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now(pytz.timezone('Asia/Jakarta'))
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -146,7 +162,6 @@ if search_file:
     else:
         st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
 
-
 # =============================
 # 📊 TABEL SEMUA PROJECT
 # =============================
@@ -162,7 +177,6 @@ else:
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
-    df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
@@ -177,7 +191,7 @@ else:
 # ✅ DAFTAR PROJECT SELESAI > 30 HARI
 # =============================
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
-now = datetime.now()
+now = datetime.now(pytz.timezone('Asia/Jakarta'))
 if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
     selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
