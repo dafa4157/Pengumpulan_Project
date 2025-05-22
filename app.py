@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 
 CSV_FILE = "data_project.csv"
@@ -83,9 +83,13 @@ if not df.empty:
 
         if duplicate_files:
             st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join([name.split('__', 1)[1] for name in duplicate_files])}")
-        else:
+        
+        # Upload hanya file yang belum ada
+        files_to_upload = [file for file in uploaded_files if f"{df.at[selected_index, 'Nama Project']}__{file.name}" not in existing_files]
+
+        if files_to_upload:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            for file in uploaded_files:
+            for file in files_to_upload:
                 filename = f"{df.at[selected_index, 'Nama Project']}__{file.name}"
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 with open(filepath, "wb") as f:
@@ -98,7 +102,7 @@ if not df.empty:
                 df.at[selected_index, 'Status'] = 'Belum Selesai'
 
             save_data(df)
-            st.success(f"{len(uploaded_files)} file berhasil diunggah dan disimpan.")
+            st.success(f"{len(files_to_upload)} file berhasil diunggah dan disimpan.")
 
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
@@ -117,10 +121,18 @@ if not df.empty:
 
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
+
+        # Hapus file terkait project dari folder uploads
+        for f in os.listdir(UPLOAD_FOLDER):
+            if f.startswith(f"{hapus_nama}__"):
+                os.remove(os.path.join(UPLOAD_FOLDER, f))
+
+        # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
         df.reset_index(drop=True, inplace=True)
         save_data(df)
-        st.success(f"Project '{hapus_nama}' berhasil dihapus.")
+        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
@@ -167,7 +179,6 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
     project_per_day = project_per_day.sort_values('Tanggal')
 
-    # Buat range tanggal lengkap
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
                                                        end=datetime.now().date())})
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
@@ -189,6 +200,7 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
