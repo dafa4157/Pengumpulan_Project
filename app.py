@@ -64,11 +64,19 @@ with st.form("form_tambah"):
                 'Selesai': False
             }
             save_data(df)
-            st.success(f"✅ Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman.")
+            st.success(f"✅ Project '{nama_baru}' berhasil ditambahkan. langsup update otomatis.")
+from datetime import datetime
+import pytz
+
 # ====================
 # Kelola Project
 # ====================
 st.subheader("🔧 Kelola Project")
+
+# Fungsi untuk ambil waktu lokal (WIB)
+def get_local_time_str():
+    jakarta_time = datetime.now(pytz.timezone("Asia/Jakarta"))
+    return jakarta_time.strftime("%Y-%m-%d %H:%M:%S"), jakarta_time.strftime("%Y%m%d%H%M%S")
 
 if not df.empty:
     selected_index = st.selectbox("Pilih Project", df.index, format_func=lambda i: df.at[i, 'Nama Project'])
@@ -84,10 +92,10 @@ if not df.empty:
 
     if uploaded_files:
         any_uploaded = False
+        now_str, now_ts = get_local_time_str()
+        
         for file in uploaded_files:
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ts = datetime.now().strftime("%Y%m%d%H%M%S")
-            filename = f"{project['Nama Project']}__{ts}__{file.name}"
+            filename = f"{project['Nama Project']}__{now_ts}__{file.name}"
             path = os.path.join(UPLOAD_FOLDER, filename)
             with open(path, "wb") as f:
                 f.write(file.read())
@@ -114,7 +122,7 @@ if not df.empty:
             st.info("📥 Upload file terlebih dahulu sebelum menandai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai selesai", key=f"selesai_{selected_index}"):
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now_str, _ = get_local_time_str()
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now_str
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
@@ -131,7 +139,6 @@ if not df.empty:
 
 else:
     st.info("Belum ada project yang ditambahkan.")
-
 
    
 
