@@ -88,44 +88,45 @@ if not df.empty:
     st.write(f"*Tanggal Selesai:* {format_tanggal(df.at[selected_index, 'Tanggal Selesai'])}")
 
     # Upload file
-    uploaded_files = st.file_uploader("Upload file", key=selected_index, accept_multiple_files=True)
-    if uploaded_files:
-        now = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
-        for file in uploaded_files:
-            timestamp = datetime.now(LOCAL_TZ).strftime("%Y%m%d%H%M%S")
-            filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            if file.size > 0:
-                with open(filepath, "wb") as f:
-                    f.write(file.read())
+uploaded_files = st.file_uploader("Upload file", key=selected_index, accept_multiple_files=True)
+if uploaded_files:
+    now = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    for file in uploaded_files:
+        timestamp = datetime.now(LOCAL_TZ).strftime("%Y%m%d%H%M%S")
+        filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if file.size > 0:
+            with open(filepath, "wb") as f:
+                f.write(file.read())
 
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
-            df.at[selected_index, 'Tanggal Upload Pertama'] = now
-        df.at[selected_index, 'Tanggal Update Terakhir'] = now
-        if not df.at[selected_index, 'Selesai']:
-            df.at[selected_index, 'Status'] = 'Belum Selesai'
-
-        save_data(df)
-        st.success(f"{len(uploaded_files)} file berhasil diunggah.")
-        st.experimental_rerun()
-
-    # Checkbox tandai selesai
+    if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
+        df.at[selected_index, 'Tanggal Upload Pertama'] = now
+    df.at[selected_index, 'Tanggal Update Terakhir'] = now
     if not df.at[selected_index, 'Selesai']:
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
-            st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
-        else:
-            selesai_checked = st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_chk_{selected_index}", value=df.at[selected_index, 'Selesai'])
-            if selesai_checked and not df.at[selected_index, 'Selesai']:
-                now_dt = datetime.now(LOCAL_TZ)
-                now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
-                df.at[selected_index, 'Status'] = "Selesai"
-                df.at[selected_index, 'Tanggal Selesai'] = now_str
-                df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
-                df.at[selected_index, 'Selesai'] = True
-                save_data(df)
-                st.experimental_rerun()
+        df.at[selected_index, 'Status'] = 'Belum Selesai'
+
+    save_data(df)
+    st.success(f"{len(uploaded_files)} file berhasil diunggah.")
+    st.experimental_rerun()  # <-- Panggil langsung di sini dan stop eksekusi
+
+# Checkbox tandai selesai
+if not df.at[selected_index, 'Selesai']:
+    if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
+        st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
     else:
-        st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
+        selesai_checked = st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_chk_{selected_index}", value=df.at[selected_index, 'Selesai'])
+        if selesai_checked and not df.at[selected_index, 'Selesai']:
+            now_dt = datetime.now(LOCAL_TZ)
+            now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+            df.at[selected_index, 'Status'] = "Selesai"
+            df.at[selected_index, 'Tanggal Selesai'] = now_str
+            df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
+            df.at[selected_index, 'Selesai'] = True
+            save_data(df)
+            st.experimental_rerun()  # <-- Juga langsung panggil di sini tanpa kode setelahnya
+else:
+    st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
+
 
     # Hapus project
     if st.button("🗑 Hapus Project Ini"):
