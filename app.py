@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import os
 
 CSV_FILE = "data_project.csv"
@@ -44,7 +43,8 @@ def safe_str(val):
     except Exception:
         return "-"
 
-st.title("📋 Manajemen Project")
+# Ganti judul tanpa emoji supaya tidak error
+st.title("Manajemen Project")
 
 df = load_data()
 
