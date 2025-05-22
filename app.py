@@ -1,25 +1,22 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-
-# Fungsi untuk mendapatkan waktu sekarang di WIB (UTC+7)
-def now_wib():
-    return datetime.utcnow() + timedelta(hours=7)
 
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
 BACKUP_FOLDER = "backup"
 
+# Buat folder upload & backup jika belum ada
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
+# =============================
+# 🔄 LOAD & SIMPAN DATA
+# =============================
 def load_data():
     if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
-        for col in ['Tanggal Upload Pertama', 'Tanggal Update Terakhir', 'Tanggal Selesai']:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-        return df
+        return pd.read_csv(CSV_FILE)
     else:
         df = pd.DataFrame(columns=[
             'Nama Project', 'Status', 'Tanggal Upload Pertama',
@@ -29,19 +26,21 @@ def load_data():
         return df
 
 def save_data(df):
-    df_to_save = df.copy()
-    # Simpan tanggal tanpa timezone
-    for col in ['Tanggal Upload Pertama', 'Tanggal Update Terakhir', 'Tanggal Selesai']:
-        df_to_save[col] = df_to_save[col].dt.strftime("%Y-%m-%d %H:%M:%S")
-    df_to_save.to_csv(CSV_FILE, index=False)
+    df.to_csv(CSV_FILE, index=False)
+    # Simpan backup otomatis
+    backup_filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(os.path.join(BACKUP_FOLDER, backup_filename), index=False)
 
-    backup_filename = f"backup_{now_wib().strftime('%Y%m%d_%H%M%S')}.csv"
-    df_to_save.to_csv(os.path.join(BACKUP_FOLDER, backup_filename), index=False)
-
+# =============================
+# 🚀 APLIKASI STREAMLIT
+# =============================
 st.title("📋 Manajemen Project")
 
 df = load_data()
 
+# =============================
+# ➕ TAMBAH PROJECT BARU
+# =============================
 st.subheader("➕ Tambah Project Baru")
 with st.form("form_tambah"):
     nama_baru = st.text_input("Nama Project Baru")
@@ -55,15 +54,18 @@ with st.form("form_tambah"):
             new_row = {
                 'Nama Project': nama_baru,
                 'Status': 'Belum Selesai',
-                'Tanggal Upload Pertama': pd.NaT,
-                'Tanggal Update Terakhir': pd.NaT,
-                'Tanggal Selesai': pd.NaT,
+                'Tanggal Upload Pertama': None,
+                'Tanggal Update Terakhir': None,
+                'Tanggal Selesai': None,
                 'Selesai': False
             }
-            df = df.append(new_row, ignore_index=True)
+            df.loc[len(df)] = new_row
             save_data(df)
             st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman untuk melihat perubahan.")
 
+# =============================
+# 🔧 KELOLA PROJECT
+# =============================
 st.subheader("🔧 Kelola Project")
 
 if not df.empty:
@@ -77,18 +79,19 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now_str = now_wib().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
-            timestamp = now_wib().strftime("%Y%m%d%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
+
             if file.size > 0:
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
-            df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
-        df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
+            df.at[selected_index, 'Tanggal Upload Pertama'] = now
+        df.at[selected_index, 'Tanggal Update Terakhir'] = now
         if not df.at[selected_index, 'Selesai']:
             df.at[selected_index, 'Status'] = 'Belum Selesai'
 
@@ -98,26 +101,30 @@ if not df.empty:
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now_dt_str = now_wib().strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 df.at[selected_index, 'Status'] = "Selesai"
-                df.at[selected_index, 'Tanggal Selesai'] = now_dt_str
-                df.at[selected_index, 'Tanggal Update Terakhir'] = now_dt_str
+                df.at[selected_index, 'Tanggal Selesai'] = now
+                df.at[selected_index, 'Tanggal Update Terakhir'] = now
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
 
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
-        df = df.drop(index=selected_index).reset_index(drop=True)
+        df.drop(index=selected_index, inplace=True)
+        df.reset_index(drop=True, inplace=True)
         save_data(df)
         st.success(f"Project '{hapus_nama}' berhasil dihapus.")
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
+# =============================
+# 📦 CARI & DOWNLOAD FILE PROJECT
+# =============================
 st.subheader("🔍 Cari dan Unduh File Project")
 search_file = st.text_input("Masukkan nama file atau project")
 
@@ -139,17 +146,23 @@ if search_file:
 
 st.caption("📌 Catatan: Semua file dan data akan tetap tersimpan selamanya, kecuali kamu menghapus project atau file secara manual.")
 
+# =============================
+# 📊 TABEL SEMUA PROJECT
+# =============================
 st.subheader("📊 Tabel Semua Project")
 if df.empty:
     st.write("Belum ada data project.")
 else:
     st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
 
+# =============================
+# 📈 GRAFIK PROJECT PER HARI
+# =============================
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
+    df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
-    df_hari['Tanggal Upload Pertama'] = pd.to_datetime(df_hari['Tanggal Upload Pertama'])
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
@@ -159,16 +172,19 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
 else:
     st.info("Belum ada data project dengan tanggal upload untuk ditampilkan dalam grafik.")
 
+# =============================
+# ✅ DAFTAR PROJECT SELESAI > 30 HARI
+# =============================
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
-now_dt = now_wib()
-
+now = datetime.now()
 if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
-    selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now_dt - df['Tanggal Selesai']).dt.days > 30)]
+    selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
     if not selesai_lama.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
