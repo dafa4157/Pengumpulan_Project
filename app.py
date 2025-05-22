@@ -48,12 +48,9 @@ def hapus_file_project(nama_project):
 def now_str():
     return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
-# Konversi kolom tanggal ke datetime dengan timezone lokal
-def convert_to_datetime_tz(df, col):
+# Konversi kolom tanggal ke datetime, tanpa timezone karena pandas default datetime tanpa tz
+def convert_to_datetime(df, col):
     df[col] = pd.to_datetime(df[col], errors='coerce')
-    # Hilangkan timezone dulu, lalu assign timezone lokal (timezone-aware)
-    df[col] = df[col].dt.tz_localize(None)
-    df[col] = df[col].dt.tz_localize(LOCAL_TZ, ambiguous='NaT', nonexistent='NaT')
     return df
 
 # Load data awal
@@ -99,14 +96,14 @@ if not df.empty:
     # Upload file dengan validasi nama file unik per project
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        existing_files = os.listdir(UPLOAD_FOLDER)
         nama_project = df.at[selected_index, 'Nama Project']
 
         duplicate_files = []
         files_to_upload = []
         for file in uploaded_files:
             filename = f"{nama_project}__{file.name}"
-            if filename in existing_files:
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(filepath):
                 duplicate_files.append(file.name)
             else:
                 files_to_upload.append((filename, file))
@@ -197,7 +194,7 @@ else:
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
-    df = convert_to_datetime_tz(df, 'Tanggal Upload Pertama')
+    df = convert_to_datetime(df, 'Tanggal Upload Pertama')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
@@ -219,8 +216,8 @@ else:
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
 
 if not df.empty:
-    df = convert_to_datetime_tz(df, 'Tanggal Selesai')
-    now_dt = datetime.now(LOCAL_TZ)
+    df = convert_to_datetime(df, 'Tanggal Selesai')
+    now_dt = datetime.now(LOCAL_TZ).replace(tzinfo=None)  # pastikan naive datetime
     selesai_lama = df[
         (df['Selesai']) &
         (df['Tanggal Selesai'].notna()) &
@@ -248,4 +245,5 @@ if files:
                     st.error(f"Gagal menghapus file '{f}': {e}")
 else:
     st.info("Tidak ada file di folder upload untuk dihapus.")
+
 
