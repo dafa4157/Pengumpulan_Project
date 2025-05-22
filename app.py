@@ -10,7 +10,7 @@ UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Load data CSV atau buat baru jika belum ada
+# Fungsi load data CSV atau buat baru jika belum ada
 def load_data():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
@@ -22,9 +22,23 @@ def load_data():
         df.to_csv(CSV_FILE, index=False)
         return df
 
-# Simpan data CSV
+# Fungsi simpan data CSV
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
+
+# Fungsi hapus file terkait project berdasarkan prefix nama project
+def hapus_file_project(nama_project):
+    nama_project_lower = nama_project.lower()
+    files_dihapus = []
+    for f in os.listdir(UPLOAD_FOLDER):
+        if f.lower().startswith(f"{nama_project_lower}__"):
+            filepath = os.path.join(UPLOAD_FOLDER, f)
+            try:
+                os.remove(filepath)
+                files_dihapus.append(f)
+            except Exception as e:
+                st.error(f"Gagal menghapus file '{f}': {e}")
+    return files_dihapus
 
 st.title("📋 Manajemen Project")
 
@@ -119,11 +133,11 @@ if not df.empty:
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
 
-        # Hapus file terkait project (prefix "NamaProject__")
-        for f in os.listdir(UPLOAD_FOLDER):
-            if f.lower().startswith(f"{hapus_nama.lower()}__"):
-                filepath = os.path.join(UPLOAD_FOLDER, f)
-                os.remove(filepath)
+        files_dihapus = hapus_file_project(hapus_nama)
+        if files_dihapus:
+            st.write(f"File yang dihapus: {', '.join(files_dihapus)}")
+        else:
+            st.info("Tidak ada file terkait project yang ditemukan untuk dihapus.")
 
         # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
@@ -189,27 +203,5 @@ now = datetime.now()
 if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
     selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
-    if not selesai_lama.empty:
-        st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
-    else:
-        st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
-
-# Fitur tambahan: Hapus file manual dari folder uploads
-st.subheader("🗑 Hapus File Manual dari Folder Uploads")
-files = os.listdir(UPLOAD_FOLDER)
-if files:
-    selected_files = st.multiselect("Pilih file yang ingin dihapus:", files)
-    if st.button("Hapus File Terpilih"):
-        if not selected_files:
-            st.warning("Silakan pilih minimal satu file untuk dihapus.")
-        else:
-            for f in selected_files:
-                try:
-                    os.remove(os.path.join(UPLOAD_FOLDER, f))
-                    st.success(f"File '{f}' berhasil dihapus.")
-                except Exception as e:
-                    st.error(f"Gagal menghapus file '{f}': {e}")
-else:
-    st.info("Tidak ada file di folder upload untuk dihapus.")
-
+    if
 
