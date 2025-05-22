@@ -48,16 +48,19 @@ def hapus_file_project(nama_project):
 def now_str():
     return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
-# Konversi kolom tanggal ke datetime, tanpa timezone karena pandas default datetime tanpa tz
+# Konversi kolom tanggal ke datetime
 def convert_to_datetime(df, col):
     df[col] = pd.to_datetime(df[col], errors='coerce')
     return df
 
-# --- STREAMLIT APP ---
-st.title("📋 Manajemen Project")
+# Inisialisasi session_state refresh flag
+if "refresh" not in st.session_state:
+    st.session_state["refresh"] = False
 
 # Load data awal
 df = load_data()
+
+st.title("📋 Manajemen Project")
 
 # Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
@@ -78,10 +81,15 @@ with st.form("form_tambah"):
                 'Tanggal Selesai': None,
                 'Selesai': False
             }
-            df = df.append(new_row, ignore_index=True)
+            df.loc[len(df)] = new_row
             save_data(df)
             st.success(f"Project '{nama_baru}' berhasil ditambahkan.")
-            st.experimental_rerun()
+            st.session_state["refresh"] = True
+
+# Rerun jika flag refresh aktif lalu reset
+if st.session_state["refresh"]:
+    st.session_state["refresh"] = False
+    st.experimental_rerun()
 
 # Kelola project
 st.subheader("🔧 Kelola Project")
@@ -89,9 +97,7 @@ st.subheader("🔧 Kelola Project")
 if not df.empty:
     selected_index = st.selectbox("Pilih Project", df.index, format_func=lambda i: df.at[i, 'Nama Project'])
 
-    nama_project = df.at[selected_index, 'Nama Project']
-
-    st.write(f"**Nama Project:** {nama_project}")
+    st.write(f"**Nama Project:** {df.at[selected_index, 'Nama Project']}")
     st.write(f"**Status:** {df.at[selected_index, 'Status']}")
     st.write(f"**Tanggal Upload Pertama:** {df.at[selected_index, 'Tanggal Upload Pertama']}")
     st.write(f"**Tanggal Update Terakhir:** {df.at[selected_index, 'Tanggal Update Terakhir']}")
@@ -100,6 +106,8 @@ if not df.empty:
     # Upload file dengan validasi nama file unik per project
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=f"upload_{selected_index}", accept_multiple_files=True)
     if uploaded_files:
+        nama_project = df.at[selected_index, 'Nama Project']
+
         duplicate_files = []
         files_to_upload = []
         for file in uploaded_files:
@@ -129,18 +137,16 @@ if not df.empty:
 
             save_data(df)
             st.success(f"{len(files_to_upload)} file berhasil diunggah dan disimpan.")
-            st.experimental_rerun()
+            st.session_state["refresh"] = True
 
     # Checkbox selesai project
-    selesai = df.at[selected_index, 'Selesai']
-    if selesai:
+    if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
+        if df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan'] or pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
-            checkbox_selesai = st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}")
-            if checkbox_selesai:
+            if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
                 now = now_str()
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
@@ -148,7 +154,7 @@ if not df.empty:
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai.")
-                st.experimental_rerun()
+                st.session_state["refresh"] = True
 
     # Tombol hapus project + hapus file terkait
     if st.button("🗑 Hapus Project Ini", key=f"hapus_{selected_index}"):
@@ -164,7 +170,8 @@ if not df.empty:
         df = df.drop(index=selected_index).reset_index(drop=True)
         save_data(df)
         st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
-        st.experimental_rerun()
+        st.session_state["refresh"] = True
+
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
