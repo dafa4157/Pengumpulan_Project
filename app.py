@@ -4,11 +4,10 @@ from datetime import datetime
 import os
 import pytz
 
+# Konstanta
 CSV_FILE = "data_project.csv"
 UPLOAD_FOLDER = "uploads"
-
-# Atur timezone lokal
-local_tz = pytz.timezone("Asia/Jakarta")
+LOCAL_TZ = pytz.timezone("Asia/Jakarta")
 
 # Buat folder upload kalau belum ada
 if not os.path.exists(UPLOAD_FOLDER):
@@ -17,7 +16,8 @@ if not os.path.exists(UPLOAD_FOLDER):
 # Fungsi load data CSV atau buat baru jika belum ada
 def load_data():
     if os.path.exists(CSV_FILE):
-        return pd.read_csv(CSV_FILE)
+        df = pd.read_csv(CSV_FILE)
+        return df
     else:
         df = pd.DataFrame(columns=[
             'Nama Project', 'Status', 'Tanggal Upload Pertama',
@@ -44,9 +44,22 @@ def hapus_file_project(nama_project):
                 st.error(f"Gagal menghapus file '{f}': {e}")
     return files_dihapus
 
-st.title("📋 Manajemen Project")
+# Format waktu sekarang sesuai timezone lokal dalam string
+def now_str():
+    return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
+# Konversi kolom tanggal ke datetime dengan timezone lokal
+def convert_to_datetime_tz(df, col):
+    df[col] = pd.to_datetime(df[col], errors='coerce')
+    # Hilangkan timezone dulu, lalu assign timezone lokal (timezone-aware)
+    df[col] = df[col].dt.tz_localize(None)
+    df[col] = df[col].dt.tz_localize(LOCAL_TZ, ambiguous='NaT', nonexistent='NaT')
+    return df
+
+# Load data awal
 df = load_data()
+
+st.title("📋 Manajemen Project")
 
 # Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
@@ -102,12 +115,13 @@ if not df.empty:
             st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join(duplicate_files)}")
 
         if files_to_upload:
-            now = datetime.now(local_tz).strftime("%Y-%m-%d %H:%M:%S")
+            now = now_str()
             for filename, file in files_to_upload:
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
+            # Update tanggal upload pertama jika belum ada
             if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
                 df.at[selected_index, 'Tanggal Upload Pertama'] = now
             df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -125,7 +139,7 @@ if not df.empty:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now = datetime.now(local_tz).strftime("%Y-%m-%d %H:%M:%S")
+                now = now_str()
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -183,15 +197,15 @@ else:
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
-    df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce').dt.date
+    df = convert_to_datetime_tz(df, 'Tanggal Upload Pertama')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
-    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama']
+    df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
     project_per_day = project_per_day.sort_values('Tanggal')
 
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
-                                                       end=datetime.now(local_tz).date())})
+                                                       end=datetime.now(LOCAL_TZ).date())})
     full_range['Tanggal'] = full_range['Tanggal'].dt.date
 
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
@@ -203,10 +217,15 @@ else:
 
 # Daftar project selesai > 30 hari
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
-now_dt = datetime.now(local_tz)
+
 if not df.empty:
-    df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
-    selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now_dt - df['Tanggal Selesai']).dt.days > 30)]
+    df = convert_to_datetime_tz(df, 'Tanggal Selesai')
+    now_dt = datetime.now(LOCAL_TZ)
+    selesai_lama = df[
+        (df['Selesai']) &
+        (df['Tanggal Selesai'].notna()) &
+        ((now_dt - df['Tanggal Selesai']).dt.days > 30)
+    ]
     if not selesai_lama.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
@@ -229,7 +248,6 @@ if files:
                     st.error(f"Gagal menghapus file '{f}': {e}")
 else:
     st.info("Tidak ada file di folder upload untuk dihapus.")
-
 
 
 
