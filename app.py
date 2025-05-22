@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 CSV_FILE = "data_project.csv"
@@ -10,6 +10,10 @@ BACKUP_FOLDER = "backup"
 # Buat folder upload & backup jika belum ada
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
+
+# Fungsi waktu lokal WIB
+def now_wib():
+    return datetime.utcnow() + timedelta(hours=7)
 
 # =============================
 # 🔄 LOAD & SIMPAN DATA
@@ -27,8 +31,7 @@ def load_data():
 
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
-    # Simpan backup otomatis
-    backup_filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    backup_filename = f"backup_{now_wib().strftime('%Y%m%d_%H%M%S')}.csv"
     df.to_csv(os.path.join(BACKUP_FOLDER, backup_filename), index=False)
 
 # =============================
@@ -79,9 +82,9 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = now_wib().strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            timestamp = now_wib().strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
 
@@ -105,7 +108,7 @@ if not df.empty:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now = now_wib().strftime("%Y-%m-%d %H:%M:%S")
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -176,7 +179,7 @@ else:
 # ✅ DAFTAR PROJECT SELESAI > 30 HARI
 # =============================
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
-now = datetime.now()
+now = now_wib()
 if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
     selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
