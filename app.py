@@ -19,6 +19,9 @@ os.makedirs(BACKUP_FOLDER, exist_ok=True)
 def now_wib():
     return datetime.utcnow() + timedelta(hours=7)
 
+def now_wib_str():
+    return now_wib().strftime("%Y-%m-%d %H:%M:%S")
+
 # =============================
 # 🔄 LOAD & SIMPAN DATA
 # =============================
@@ -84,11 +87,10 @@ if not df.empty:
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now = now_wib()
-        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        now_str = now_wib_str()
 
         for file in uploaded_files:
-            timestamp = now.strftime("%Y%m%d%H%M%S")
+            timestamp = now_wib().strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
 
@@ -112,8 +114,7 @@ if not df.empty:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
-                now = now_wib()
-                now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+                now_str = now_wib_str()
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now_str
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
@@ -161,7 +162,11 @@ st.subheader("📊 Tabel Semua Project")
 if df.empty:
     st.write("Belum ada data project.")
 else:
-    st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
+    df_display = df.copy()
+    df_display['Tanggal Upload Pertama'] = pd.to_datetime(df_display['Tanggal Upload Pertama'], errors='coerce').dt.strftime("%Y-%m-%d %H:%M:%S")
+    df_display['Tanggal Update Terakhir'] = pd.to_datetime(df_display['Tanggal Update Terakhir'], errors='coerce').dt.strftime("%Y-%m-%d %H:%M:%S")
+    df_display['Tanggal Selesai'] = pd.to_datetime(df_display['Tanggal Selesai'], errors='coerce').dt.strftime("%Y-%m-%d %H:%M:%S")
+    st.dataframe(df_display.drop(columns=["Selesai"]), use_container_width=True)
 
 # =============================
 # 📈 GRAFIK PROJECT PER HARI
