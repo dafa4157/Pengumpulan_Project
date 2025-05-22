@@ -146,7 +146,7 @@ else:
     st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
 
 # =============================
-# 📈 GRAFIK PROJECT PER HARI (FULL RANGE)
+# 📈 GRAFIK PROJECT PER HARI
 # =============================
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
@@ -155,16 +155,12 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
-    # Tampilkan semua tanggal dalam rentang dari awal sampai hari ini
     start_date = df_hari['Tanggal'].min()
     end_date = datetime.now().date()
     all_dates = pd.date_range(start=start_date, end=end_date)
 
-    # Hitung project per hari
     project_per_day = df_hari.groupby('Tanggal').size().reset_index(name='Jumlah Project')
-
-    # Merge dengan semua tanggal
-    full_range = pd.DataFrame({'Tanggal': all_dates})
+    full_range = pd.DataFrame({'Tanggal': [d.date() for d in all_dates]})
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
     merged['Jumlah Project'] = merged['Jumlah Project'].astype(int)
 
