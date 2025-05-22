@@ -117,7 +117,7 @@ else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
 # =============================
-# 📦 CARI & DOWNLOAD FILE PROJECT
+# 📦 CARI & DOWNLOAD FILE PROJECT + HAPUS FILE
 # =============================
 st.subheader("🔍 Cari dan Unduh File Project")
 search_file = st.text_input("Masukkan nama file atau project")
@@ -132,10 +132,20 @@ if search_file:
         for file in matching_files:
             filepath = os.path.join(UPLOAD_FOLDER, file)
             nama_tampil = file.split("__", 1)[-1]
-            with open(filepath, "rb") as f:
-                st.download_button(f"⬇️ {nama_tampil}", f, file_name=nama_tampil)
+            col1, col2 = st.columns([3,1])
+            with col1:
+                with open(filepath, "rb") as f:
+                    st.download_button(f"⬇️ {nama_tampil}", f, file_name=nama_tampil)
+            with col2:
+                if st.button(f"🗑 Hapus", key=f"hapus_{file}"):
+                    try:
+                        os.remove(filepath)
+                        st.success(f"File '{nama_tampil}' berhasil dihapus.")
+                    except Exception as e:
+                        st.error(f"Gagal menghapus file: {e}")
     else:
         st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
+
 
 # =============================
 # 📊 TABEL SEMUA PROJECT
