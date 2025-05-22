@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -64,6 +65,7 @@ with st.form("form_tambah"):
             }
             save_data(df)
             st.success(f"✅ Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman.")
+
 # ====================
 # Kelola Project
 # ====================
@@ -82,33 +84,30 @@ if not df.empty:
     uploaded_files = st.file_uploader("Upload file", key=f"upload_{selected_index}", accept_multiple_files=True)
 
     if uploaded_files:
-        any_uploaded = False
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ts = datetime.now().strftime("%Y%m%d%H%M%S")
             filename = f"{project['Nama Project']}__{ts}__{file.name}"
             path = os.path.join(UPLOAD_FOLDER, filename)
             with open(path, "wb") as f:
                 f.write(file.read())
-            any_uploaded = True
 
-        if any_uploaded:
-            if pd.isna(project['Tanggal Upload Pertama']) or str(project['Tanggal Upload Pertama']).strip().lower() in ['none', 'nan', '']:
-                df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
+        if pd.isna(project['Tanggal Upload Pertama']) or str(project['Tanggal Upload Pertama']).lower() in ['none', 'nan']:
+            df.at[selected_index, 'Tanggal Upload Pertama'] = now_str
 
-            df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
+        df.at[selected_index, 'Tanggal Update Terakhir'] = now_str
 
-            if not project['Selesai']:
-                df.at[selected_index, 'Status'] = "Belum Selesai"
+        if not project['Selesai']:
+            df.at[selected_index, 'Status'] = "Belum Selesai"
 
-            save_data(df)
-            st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
+        save_data(df)
+        st.success(f"✅ {len(uploaded_files)} file berhasil diunggah.")
 
     # Checkbox selesai
     if project['Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        boleh_selesai = df.at[selected_index, 'Tanggal Upload Pertama'] not in [None, 'None', 'nan', '']
+        boleh_selesai = df.at[selected_index, 'Tanggal Upload Pertama'] not in [None, 'None', 'nan']
         if not boleh_selesai:
             st.info("📥 Upload file terlebih dahulu sebelum menandai selesai.")
         else:
@@ -131,9 +130,6 @@ if not df.empty:
 else:
     st.info("Belum ada project yang ditambahkan.")
 
-
-   
-
 # ====================
 # Cari & Download File
 # ====================
@@ -149,33 +145,6 @@ if search_term:
                 st.download_button(f"⬇️ {filename_display}", f, file_name=filename_display, key=f"dl_{i}")
     else:
         st.warning("❌ File tidak ditemukan.")
-
-# ====================
-# Hapus File Project
-# ====================
-st.subheader("🗑 Hapus File Project")
-hapus_term = st.text_input("Masukkan nama file yang ingin dihapus", key="hapus_file")
-
-if hapus_term:
-    files_to_delete = [f for f in os.listdir(UPLOAD_FOLDER) if hapus_term.lower() in f.lower()]
-    
-    if files_to_delete:
-        st.write(f"File yang cocok dengan '{hapus_term}':")
-        for i, file in enumerate(files_to_delete):
-            filepath = os.path.join(UPLOAD_FOLDER, file)
-            filename_display = file.split("__", 2)[-1]
-            col1, col2 = st.columns([8, 1])
-            with col1:
-                st.write(filename_display)
-            with col2:
-                if st.button("Hapus", key=f"hapus_file_{i}"):
-                    try:
-                        os.remove(filepath)
-                        st.success(f"File '{filename_display}' berhasil dihapus.")
-                    except Exception as e:
-                        st.error(f"Gagal menghapus file: {e}")
-    else:
-        st.info("Tidak ditemukan file dengan nama tersebut.")
 
 # ====================
 # Tabel Semua Project
@@ -216,9 +185,6 @@ else:
     st.info("✅ Tidak ada project selesai lebih dari 30 hari lalu.")
 
 st.caption("📌 Catatan: File akan tersimpan otomatis. Hapus manual bila perlu.")
-
-
-
 
 
 
