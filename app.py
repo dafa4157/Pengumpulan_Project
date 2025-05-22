@@ -10,9 +10,7 @@ UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# =============================
-# 🔄 LOAD & SIMPAN DATA
-# =============================
+# Fungsi load data CSV
 def load_data():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
@@ -24,19 +22,16 @@ def load_data():
         df.to_csv(CSV_FILE, index=False)
         return df
 
+# Fungsi simpan data CSV
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
 
-# =============================
-# 🚀 APLIKASI STREAMLIT
-# =============================
+# App title
 st.title("📋 Manajemen Project")
 
 df = load_data()
 
-# =============================
-# ➕ TAMBAH PROJECT BARU
-# =============================
+# Form tambah project baru
 st.subheader("➕ Tambah Project Baru")
 with st.form("form_tambah"):
     nama_baru = st.text_input("Nama Project Baru")
@@ -59,43 +54,47 @@ with st.form("form_tambah"):
             save_data(df)
             st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman untuk melihat perubahan.")
 
-# =============================
-# 🔧 KELOLA PROJECT
-# =============================
+# Kelola project
 st.subheader("🔧 Kelola Project")
 
 if not df.empty:
     selected_index = st.selectbox("Pilih Project", df.index, format_func=lambda i: df.at[i, 'Nama Project'])
 
-    st.write(f"*Nama Project:* {df.at[selected_index, 'Nama Project']}")
-    st.write(f"*Status:* {df.at[selected_index, 'Status']}")
-    st.write(f"*Tanggal Upload Pertama:* {df.at[selected_index, 'Tanggal Upload Pertama']}")
-    st.write(f"*Tanggal Update Terakhir:* {df.at[selected_index, 'Tanggal Update Terakhir']}")
-    st.write(f"*Tanggal Selesai:* {df.at[selected_index, 'Tanggal Selesai']}")
+    st.write(f"**Nama Project:** {df.at[selected_index, 'Nama Project']}")
+    st.write(f"**Status:** {df.at[selected_index, 'Status']}")
+    st.write(f"**Tanggal Upload Pertama:** {df.at[selected_index, 'Tanggal Upload Pertama']}")
+    st.write(f"**Tanggal Update Terakhir:** {df.at[selected_index, 'Tanggal Update Terakhir']}")
+    st.write(f"**Tanggal Selesai:** {df.at[selected_index, 'Tanggal Selesai']}")
 
+    # Upload file dengan validasi nama file unik per project
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        # Cek file yang sudah ada agar tidak duplikat
-        uploaded_names = [f"{df.at[selected_index, 'Nama Project']}__{file.name}" for file in uploaded_files]
         existing_files = os.listdir(UPLOAD_FOLDER)
+        nama_project = df.at[selected_index, 'Nama Project']
 
-        duplicate_files = [name for name in uploaded_names if name in existing_files]
+        # Cek file duplikat
+        duplicate_files = []
+        files_to_upload = []
+        for file in uploaded_files:
+            filename = f"{nama_project}__{file.name}"
+            if filename in existing_files:
+                duplicate_files.append(file.name)
+            else:
+                files_to_upload.append((filename, file))
 
         if duplicate_files:
-            st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join([name.split('__', 1)[1] for name in duplicate_files])}")
+            st.error(f"❌ File berikut sudah ada dan tidak diunggah ulang:\n\n{', '.join(duplicate_files)}")
 
-        # Upload hanya file yang belum ada
-        files_to_upload = [file for file in uploaded_files if f"{df.at[selected_index, 'Nama Project']}__{file.name}" not in existing_files]
-
+        # Simpan file yang tidak duplikat
         if files_to_upload:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            for file in files_to_upload:
-                filename = f"{df.at[selected_index, 'Nama Project']}__{file.name}"
+            for filename, file in files_to_upload:
                 filepath = os.path.join(UPLOAD_FOLDER, filename)
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
-            if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
+            # Update tanggal upload di dataframe
+            if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
                 df.at[selected_index, 'Tanggal Upload Pertama'] = now
             df.at[selected_index, 'Tanggal Update Terakhir'] = now
             if not df.at[selected_index, 'Selesai']:
@@ -104,6 +103,7 @@ if not df.empty:
             save_data(df)
             st.success(f"{len(files_to_upload)} file berhasil diunggah dan disimpan.")
 
+    # Checkbox selesai project
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
@@ -119,34 +119,25 @@ if not df.empty:
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
 
+    # Tombol hapus project + hapus file terkait
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
 
-        # Hapus file terkait project dari folder uploads
-        failed_files = []
+        # Hapus file terkait project
         for f in os.listdir(UPLOAD_FOLDER):
             if f.startswith(f"{hapus_nama}__"):
-                try:
-                    os.remove(os.path.join(UPLOAD_FOLDER, f))
-                except Exception as e:
-                    failed_files.append((f, str(e)))
+                os.remove(os.path.join(UPLOAD_FOLDER, f))
 
         # Hapus data project dari dataframe
         df.drop(index=selected_index, inplace=True)
         df.reset_index(drop=True, inplace=True)
         save_data(df)
-
-        if failed_files:
-            st.error("Beberapa file gagal dihapus:\n" + "\n".join([f"{f}: {err}" for f, err in failed_files]))
-        else:
-            st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
 
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
 
-# =============================
-# 📦 CARI & DOWNLOAD FILE PROJECT
-# =============================
+# Cari dan download file project
 st.subheader("🔍 Cari dan Unduh File Project")
 search_file = st.text_input("Masukkan nama file atau project")
 
@@ -165,18 +156,14 @@ if search_file:
     else:
         st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
 
-# =============================
-# 📊 TABEL SEMUA PROJECT
-# =============================
+# Tabel semua project
 st.subheader("📊 Tabel Semua Project")
 if df.empty:
     st.write("Belum ada data project.")
 else:
     st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
 
-# =============================
-# 📈 GRAFIK PROJECT PER HARI
-# =============================
+# Grafik project per hari
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
@@ -189,11 +176,6 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
 
     full_range = pd.DataFrame({'Tanggal': pd.date_range(start=project_per_day['Tanggal'].min(),
                                                        end=datetime.now().date())})
-
-    # Pastikan tipe tanggal sama
-    full_range['Tanggal'] = pd.to_datetime(full_range['Tanggal'])
-    project_per_day['Tanggal'] = pd.to_datetime(project_per_day['Tanggal'])
-
     merged = full_range.merge(project_per_day, on='Tanggal', how='left').fillna(0)
     merged['Jumlah Project'] = merged['Jumlah Project'].astype(int)
 
@@ -201,9 +183,7 @@ if not df.empty and df['Tanggal Upload Pertama'].notna().any():
 else:
     st.info("Belum ada data project dengan tanggal upload untuk ditampilkan dalam grafik.")
 
-# =============================
-# ✅ DAFTAR PROJECT SELESAI > 30 HARI
-# =============================
+# Daftar project selesai > 30 hari
 st.subheader("📆 Project Selesai Lebih dari 30 Hari Lalu")
 now = datetime.now()
 if not df.empty:
