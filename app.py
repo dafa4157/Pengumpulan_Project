@@ -130,42 +130,35 @@ if not df.empty:
 else:
     st.info("Belum ada project yang ditambahkan.")
 
-# ====================
-# Cari, Download & Hapus File Project
-# ====================
-import shutil  # untuk backup / hapus file jika perlu
+# =============================
+# 📦 CARI & DOWNLOAD FILE PROJECT + HAPUS FILE
+# =============================
+st.subheader("🔍 Cari dan Unduh File Project")
+search_file = st.text_input("Masukkan nama file atau project")
 
-st.subheader("🔍 Cari, Unduh, dan Hapus File Project")
+if search_file:
+    matching_files = []
+    for f in os.listdir(UPLOAD_FOLDER):
+        if search_file.lower() in f.lower():
+            matching_files.append(f)
 
-search_term = st.text_input("Masukkan nama file atau project untuk cari")
-if search_term:
-    files = [f for f in os.listdir(UPLOAD_FOLDER) if search_term.lower() in f.lower()]
-    if files:
-        for i, file in enumerate(files):
+    if matching_files:
+        for file in matching_files:
             filepath = os.path.join(UPLOAD_FOLDER, file)
-            filename_display = file.split("__", 2)[-1]
-
-            col1, col2 = st.columns([8, 1])  # kolom untuk tombol download dan hapus
+            nama_tampil = file.split("__", 1)[-1]
+            col1, col2 = st.columns([3,1])
             with col1:
                 with open(filepath, "rb") as f:
-                    st.download_button(f"⬇️ {filename_display}", f, file_name=filename_display, key=f"dl_{i}")
-
+                    st.download_button(f"⬇️ {nama_tampil}", f, file_name=nama_tampil)
             with col2:
-                if st.button(f"🗑 Hapus", key=f"hapus_file_{i}"):
+                if st.button(f"🗑 Hapus", key=f"hapus_{file}"):
                     try:
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
-                            st.success(f"File '{filename_display}' berhasil dihapus.")
-                            st.experimental_rerun()  # Refresh app supaya file hilang dari list
-                        else:
-                            st.error("File tidak ditemukan, sudah mungkin terhapus sebelumnya.")
-                    except PermissionError:
-                        st.error("Tidak punya izin menghapus file ini.")
+                        os.remove(filepath)
+                        st.success(f"File '{nama_tampil}' berhasil dihapus.")
                     except Exception as e:
                         st.error(f"Gagal menghapus file: {e}")
     else:
-        st.warning("❌ File tidak ditemukan.")
-
+        st.warning("❌ Tidak ditemukan file dengan nama tersebut.")
 
 # ====================
 # Tabel Semua Project
