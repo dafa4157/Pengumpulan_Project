@@ -51,20 +51,21 @@ st.title("📋 Manajemen Project")
 
 df = load_data()
 
-# =============================
-# ➕ TAMBAH PROJECT BARU
-# =============================
+# ====================
+# Tambah Project Baru
+# ====================
 st.subheader("➕ Tambah Project Baru")
 with st.form("form_tambah"):
     nama_baru = st.text_input("Nama Project Baru")
-    submitted = st.form_submit_button("Tambah")
-    if submitted:
+    submit_tambah = st.form_submit_button("Tambah")
+    if submit_tambah:
         if nama_baru.strip() == "":
-            st.warning("Nama project tidak boleh kosong.")
+            st.warning("⚠️ Nama project tidak boleh kosong.")
         elif nama_baru in df['Nama Project'].values:
-            st.warning("Project sudah ada.")
+            st.warning("⚠️ Project sudah ada.")
         else:
-            new_row = {
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            df.loc[len(df)] = {
                 'Nama Project': nama_baru,
                 'Status': 'Belum Selesai',
                 'Tanggal Upload Pertama': None,
@@ -72,9 +73,8 @@ with st.form("form_tambah"):
                 'Tanggal Selesai': None,
                 'Selesai': False
             }
-            df.loc[len(df)] = new_row
             save_data(df)
-            st.success(f"Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman untuk melihat perubahan.")
+            st.success(f"✅ Project '{nama_baru}' berhasil ditambahkan. Silakan refresh halaman.")
 
 # =============================
 # 🔧 KELOLA PROJECT
