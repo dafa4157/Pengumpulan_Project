@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import pytz
 
@@ -20,7 +20,11 @@ os.makedirs(BACKUP_FOLDER, exist_ok=True)
 # =============================
 def load_data():
     if os.path.exists(CSV_FILE):
-        return pd.read_csv(CSV_FILE)
+        df = pd.read_csv(CSV_FILE)
+        # convert kolom tanggal ke datetime atau NaT jika gagal
+        for col in ['Tanggal Upload Pertama', 'Tanggal Update Terakhir', 'Tanggal Selesai']:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+        return df
     else:
         df = pd.DataFrame(columns=[
             'Nama Project', 'Status', 'Tanggal Upload Pertama',
@@ -33,6 +37,14 @@ def save_data(df):
     df.to_csv(CSV_FILE, index=False)
     backup_filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     df.to_csv(os.path.join(BACKUP_FOLDER, backup_filename), index=False)
+
+# =============================
+# Fungsi bantu format tanggal
+# =============================
+def format_tanggal(tgl):
+    if pd.isna(tgl):
+        return "-"
+    return tgl.strftime("%Y-%m-%d %H:%M:%S")
 
 # =============================
 # 🚀 APLIKASI STREAMLIT
@@ -57,9 +69,9 @@ with st.form("form_tambah"):
             new_row = {
                 'Nama Project': nama_baru,
                 'Status': 'Belum Selesai',
-                'Tanggal Upload Pertama': None,
-                'Tanggal Update Terakhir': None,
-                'Tanggal Selesai': None,
+                'Tanggal Upload Pertama': pd.NaT,
+                'Tanggal Update Terakhir': pd.NaT,
+                'Tanggal Selesai': pd.NaT,
                 'Selesai': False
             }
             df.loc[len(df)] = new_row
@@ -76,22 +88,23 @@ if not df.empty:
 
     st.write(f"*Nama Project:* {df.at[selected_index, 'Nama Project']}")
     st.write(f"*Status:* {df.at[selected_index, 'Status']}")
-    st.write(f"*Tanggal Upload Pertama:* {df.at[selected_index, 'Tanggal Upload Pertama'] or '-'}")
-    st.write(f"*Tanggal Update Terakhir:* {df.at[selected_index, 'Tanggal Update Terakhir'] or '-'}")
-    st.write(f"*Tanggal Selesai:* {df.at[selected_index, 'Tanggal Selesai'] or '-'}")
+    st.write(f"*Tanggal Upload Pertama:* {format_tanggal(df.at[selected_index, 'Tanggal Upload Pertama'])}")
+    st.write(f"*Tanggal Update Terakhir:* {format_tanggal(df.at[selected_index, 'Tanggal Update Terakhir'])}")
+    st.write(f"*Tanggal Selesai:* {format_tanggal(df.at[selected_index, 'Tanggal Selesai'])}")
 
     uploaded_files = st.file_uploader("Upload file", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
-        now = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now(LOCAL_TZ)
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
-            timestamp = datetime.now(LOCAL_TZ).strftime("%Y%m%d%H%M%S")
+            timestamp = now.strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             if file.size > 0:
                 with open(filepath, "wb") as f:
                     f.write(file.read())
 
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in ['None', 'nan']:
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
             df.at[selected_index, 'Tanggal Upload Pertama'] = now
         df.at[selected_index, 'Tanggal Update Terakhir'] = now
         if not df.at[selected_index, 'Selesai']:
@@ -103,11 +116,11 @@ if not df.empty:
     if df.at[selected_index, 'Selesai']:
         st.checkbox("✅ Project Telah Selesai", value=True, disabled=True)
     else:
-        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
+        if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
             if st.button("✔️ Tandai sebagai Selesai", key=f"selesai_btn_{selected_index}"):
-                now = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now(LOCAL_TZ)
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now
@@ -160,7 +173,6 @@ else:
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
-    df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama'].dt.date
 
