@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -69,7 +71,6 @@ with st.form("form_tambah"):
             st.success(f"Proyek '{nama_baru}' berhasil ditambahkan.")
             st.rerun() # Use st.rerun() instead of st.experimental_rerun()
 
----
 
 # --- Manage/Edit/Delete Projects ---
 st.subheader("🔧 Kelola Proyek")
@@ -160,19 +161,16 @@ if not df.empty:
 else:
     st.info("Belum ada proyek. Tambahkan proyek terlebih dahulu.")
 
----
 
 # --- All Projects Table ---
 st.subheader("📊 Tabel Semua Proyek")
 if df.empty:
     st.write("Belum ada data proyek.")
 else:
-    # Ensure 'Tanggal Upload Pertama' is datetime type
-    # This line is redundant if load_data() handles conversion, but safe for immediate use
+    # Ensure 'Tanggal Upload Pertama' is datetime type (redundant if load_data() works, but harmless)
     df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
 
-    # Calculate 'Durasi Hari' - the issue was likely here
-    # The current time is also converted to a Pandas Timestamp for consistent operations
+    # Calculate 'Durasi Hari'
     current_time_pd = pd.Timestamp(datetime.now())
     df['Durasi Hari'] = (current_time_pd - df['Tanggal Upload Pertama']).dt.days
 
