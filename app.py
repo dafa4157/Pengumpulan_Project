@@ -142,7 +142,13 @@ st.subheader("📊 Tabel Semua Proyek")
 if df.empty:
     st.write("Belum ada data proyek.")
 else:
+    # Tambahkan durasi (opsional)
+    df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce')
+    df['Durasi Hari'] = df['Tanggal Upload Pertama'].apply(
+        lambda x: (datetime.now() - x).days if pd.notnull(x) else None
+    )
     st.dataframe(df.drop(columns=["Selesai"]), use_container_width=True)
+
 
 
 
