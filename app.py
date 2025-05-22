@@ -106,7 +106,7 @@ if not df.empty:
         if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']) or df.at[selected_index, 'Tanggal Upload Pertama'] in [None, 'None', 'nan']:
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
-            if st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_{selected_index}"):
+            if st.button("✔️ Tandai sebagai Selesai", key=f"selesai_btn_{selected_index}"):
                 now = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
@@ -114,7 +114,7 @@ if not df.empty:
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai.")
-                st.experimental_rerun()  # <-- Tambahan supaya reload otomatis
+                st.experimental_rerun()
 
     if st.button("🗑 Hapus Project Ini"):
         hapus_nama = df.at[selected_index, 'Nama Project']
@@ -183,7 +183,6 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
-
 
 
 
