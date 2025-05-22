@@ -203,5 +203,27 @@ now = datetime.now()
 if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
     selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
-    if
+    if not selesai_lama.empty:
+        st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
+    else:
+        st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
+# Fitur tambahan: Hapus file manual dari folder uploads
+st.subheader("🗑 Hapus File Manual dari Folder Uploads")
+files = os.listdir(UPLOAD_FOLDER)
+if files:
+    selected_files = st.multiselect("Pilih file yang ingin dihapus:", files)
+    if st.button("Hapus File Terpilih"):
+        if not selected_files:
+            st.warning("Silakan pilih minimal satu file untuk dihapus.")
+        else:
+            for f in selected_files:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                    st.success(f"File '{f}' berhasil dihapus.")
+                except Exception as e:
+                    st.error(f"Gagal menghapus file '{f}': {e}")
+else:
+    st.info("Tidak ada file di folder upload untuk dihapus.")
+
 
