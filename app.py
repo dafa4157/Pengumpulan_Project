@@ -11,6 +11,12 @@ BACKUP_FOLDER = "backup"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
+# Fungsi bantu untuk menampilkan waktu dengan aman
+def format_datetime(value):
+    if pd.isna(value) or str(value).lower() in ['none', 'nan']:
+        return "-"
+    return str(value)
+
 # =============================
 # 🔄 LOAD & SIMPAN DATA
 # =============================
@@ -27,7 +33,6 @@ def load_data():
 
 def save_data(df):
     df.to_csv(CSV_FILE, index=False)
-    # Simpan backup otomatis
     backup_filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     df.to_csv(os.path.join(BACKUP_FOLDER, backup_filename), index=False)
 
@@ -73,9 +78,9 @@ if not df.empty:
 
     st.write(f"*Nama Project:* {df.at[selected_index, 'Nama Project']}")
     st.write(f"*Status:* {df.at[selected_index, 'Status']}")
-    st.write(f"*Tanggal Upload Pertama:* {df.at[selected_index, 'Tanggal Upload Pertama']}")
-    st.write(f"*Tanggal Update Terakhir:* {df.at[selected_index, 'Tanggal Update Terakhir']}")
-    st.write(f"*Tanggal Selesai:* {df.at[selected_index, 'Tanggal Selesai']}")
+    st.write(f"*Tanggal Upload Pertama:* {format_datetime(df.at[selected_index, 'Tanggal Upload Pertama'])}")
+    st.write(f"*Tanggal Update Terakhir:* {format_datetime(df.at[selected_index, 'Tanggal Update Terakhir'])}")
+    st.write(f"*Tanggal Selesai:* {format_datetime(df.at[selected_index, 'Tanggal Selesai'])}")
 
     uploaded_files = st.file_uploader("Upload file (boleh lebih dari satu)", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
@@ -181,9 +186,12 @@ if not df.empty:
     df['Tanggal Selesai'] = pd.to_datetime(df['Tanggal Selesai'], errors='coerce')
     selesai_lama = df[(df['Selesai']) & (df['Tanggal Selesai'].notna()) & ((now - df['Tanggal Selesai']).dt.days > 30)]
     if not selesai_lama.empty:
-        st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
+        df_tampil = selesai_lama[['Nama Project', 'Tanggal Selesai']].copy()
+        df_tampil['Tanggal Selesai'] = df_tampil['Tanggal Selesai'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        st.dataframe(df_tampil, use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
