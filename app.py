@@ -10,18 +10,6 @@ UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Fungsi hapus semua file di folder uploads
-def hapus_semua_file_upload():
-    if os.path.exists(UPLOAD_FOLDER):
-        files = os.listdir(UPLOAD_FOLDER)
-        for f in files:
-            try:
-                os.remove(os.path.join(UPLOAD_FOLDER, f))
-            except Exception as e:
-                st.error(f"Gagal menghapus file {f}: {e}")
-        return len(files)
-    return 0
-
 # Load data CSV atau buat baru jika belum ada
 def load_data():
     if os.path.exists(CSV_FILE):
@@ -127,22 +115,25 @@ if not df.empty:
                 save_data(df)
                 st.success("✅ Project ditandai sebagai selesai. Silakan refresh halaman untuk melihat perubahan.")
 
-    # Tombol hapus project + hapus file terkait
+    # Tombol hapus project + hapus file terkait dengan try-except dan rerun
     if st.button("🗑 Hapus Project Ini"):
-        hapus_nama = df.at[selected_index, 'Nama Project']
+        try:
+            hapus_nama = df.at[selected_index, 'Nama Project']
 
-        # Hapus file terkait project (prefix "NamaProject__")
-        for f in os.listdir(UPLOAD_FOLDER):
-            if f.lower().startswith(f"{hapus_nama.lower()}__"):
-                filepath = os.path.join(UPLOAD_FOLDER, f)
-                os.remove(filepath)
+            # Hapus file terkait project (prefix "NamaProject__")
+            for f in os.listdir(UPLOAD_FOLDER):
+                if f.lower().startswith(f"{hapus_nama.lower()}__"):
+                    filepath = os.path.join(UPLOAD_FOLDER, f)
+                    os.remove(filepath)
 
-        # Hapus data project dari dataframe
-        df.drop(index=selected_index, inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        save_data(df)
-        st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
-        st.experimental_rerun()
+            # Hapus data project dari dataframe
+            df.drop(index=selected_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            save_data(df)
+            st.success(f"Project '{hapus_nama}' dan file terkait berhasil dihapus.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Terjadi error saat hapus project: {e}")
 
 else:
     st.info("Belum ada project. Tambahkan project terlebih dahulu.")
@@ -177,6 +168,7 @@ else:
 st.subheader("📈 Grafik Jumlah Project per Hari")
 
 if not df.empty and df['Tanggal Upload Pertama'].notna().any():
+    # Pastikan tipe tanggal konsisten datetime.date
     df['Tanggal Upload Pertama'] = pd.to_datetime(df['Tanggal Upload Pertama'], errors='coerce').dt.date
     df_hari = df.dropna(subset=['Tanggal Upload Pertama']).copy()
     df_hari['Tanggal'] = df_hari['Tanggal Upload Pertama']
@@ -206,11 +198,3 @@ if not df.empty:
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
 
-# Tombol hapus semua file upload
-st.subheader("🗑 Hapus Semua File di Folder Uploads")
-if st.button("Hapus Semua File"):
-    jumlah = hapus_semua_file_upload()
-    if jumlah > 0:
-        st.success(f"Berhasil menghapus {jumlah} file di folder uploads.")
-    else:
-        st.info("Tidak ada file untuk dihapus.")
