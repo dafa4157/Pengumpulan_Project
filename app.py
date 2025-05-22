@@ -95,7 +95,6 @@ if not df.empty:
     uploaded_files = st.file_uploader("Upload file", key=selected_index, accept_multiple_files=True)
     if uploaded_files:
         now = datetime.now(LOCAL_TZ)
-        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
         for file in uploaded_files:
             timestamp = now.strftime("%Y%m%d%H%M%S")
             filename = f"{df.at[selected_index, 'Nama Project']}__{timestamp}__{file.name}"
@@ -119,14 +118,14 @@ if not df.empty:
         if pd.isna(df.at[selected_index, 'Tanggal Upload Pertama']):
             st.info("🔒 Upload file terlebih dahulu sebelum menandai project sebagai selesai.")
         else:
-            if st.button("✔️ Tandai sebagai Selesai", key=f"selesai_btn_{selected_index}"):
+            selesai_checked = st.checkbox("✔️ Tandai sebagai Selesai", key=f"selesai_chk_{selected_index}")
+            if selesai_checked:
                 now = datetime.now(LOCAL_TZ)
                 df.at[selected_index, 'Status'] = "Selesai"
                 df.at[selected_index, 'Tanggal Selesai'] = now
                 df.at[selected_index, 'Tanggal Update Terakhir'] = now
                 df.at[selected_index, 'Selesai'] = True
                 save_data(df)
-                st.success("✅ Project ditandai sebagai selesai.")
                 st.experimental_rerun()
 
     if st.button("🗑 Hapus Project Ini"):
@@ -195,6 +194,7 @@ if not df.empty:
         st.dataframe(selesai_lama[['Nama Project', 'Tanggal Selesai']], use_container_width=True)
     else:
         st.info("Tidak ada project yang selesai lebih dari 30 hari lalu.")
+
 
 
 
